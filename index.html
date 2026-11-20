@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Grille de création</title>
+  <style>
+    :root {
+      --bg-main: #0f1115;
+      --bg-panel: #161920;
+      --cell-bg: #1c2029;
+      --cell-border: #2a303d;
+      --cell-active: #00e5ff;
+      --cell-active-glow: rgba(0, 229, 255, 0.22);
+      --block-saved: #22c55e;
+      --block-saved-glow: rgba(34, 197, 94, 0.22);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --dock-height: 76px;
+      --gap: 3px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+    }
+
+    .grid-viewport {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #snap-grid {
+      display: grid;
+      gap: var(--gap);
+      touch-action: none;
+    }
+
+    .grid-cell {
+      background: var(--cell-bg);
+      border: 1px solid var(--cell-border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: transform 0.08s ease, background-color 0.12s ease, border-color 0.12s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .grid-cell:active {
+      transform: scale(0.9);
+    }
+
+    .grid-cell.selected {
+      background: var(--cell-active-glow);
+      border-color: var(--cell-active);
+      color: var(--cell-active);
+      box-shadow: inset 0 0 6px rgba(0, 229, 255, 0.25);
+    }
+
+    .grid-cell.block-member {
+      background: var(--block-saved-glow);
+      border-color: var(--block-saved);
+      color: var(--block-saved);
+      box-shadow: inset 0 0 6px rgba(34, 197, 94, 0.25);
+    }
+
+    .toast-banner {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-16px);
+      background: rgba(22, 25, 32, 0.95);
+      border: 1px solid var(--cell-active);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 20;
+      white-space: nowrap;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .toast-banner.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .bottom-dock {
+      height: var(--dock-height);
+      background: var(--bg-panel);
+      border-top: 1px solid var(--cell-border);
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    .selection-badge {
+      display: flex;
+      flex-direction: column;
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 0;
+    }
+
+    .selection-badge strong {
+      font-size: 13px;
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #action-btn {
+      flex: 1;
+      max-width: 220px;
+      height: 46px;
+      background: var(--cell-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--cell-border);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    #action-btn.is-active {
+      background: var(--cell-active);
+      color: #090b0e;
+      border-color: var(--cell-active);
+      box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+    }
+
+    #action-btn:active {
+      transform: scale(0.96);
+    }
+  </style>
+<meta property="og:title" content="Grille de création">
+<meta name="twitter:title" content="Grille de création">
+<meta name="application-name" content="Grille de création">
+<meta name="apple-mobile-web-app-title" content="Grille de création">
+<meta name="description" content="Grille vide">
+<meta property="og:description" content="Grille vide">
+<meta name="twitter:description" content="Grille vide">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon.png">
+<meta property="og:image" content="https://mekeirish.github.io/Grille-de-cration/icon.png">
+<meta name="twitter:image" content="https://mekeirish.github.io/Grille-de-cration/icon.png">
+<meta name="twitter:card" content="summary">
+<meta property="og:url" content="https://mekeirish.github.io/Grille-de-cration/">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#050608">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="./icon.png">
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1320x2868.png">
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1206x2622.png">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1242x2688.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash-1242x2208.png">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash-640x1136.png">
+</head>
+<body>
+
+  <div class="app-shell">
+    <!-- Zone pleine hauteur avec carrés parfaits -->
+    <main class="grid-viewport" id="viewport">
+      <div id="toast" class="toast-banner" role="status" aria-live="polite"></div>
+      <div id="snap-grid" role="grid" aria-label="Grille aimantée"></div>
+    </main>
+
+    <!-- Barre inférieure avec bouton sélectionné -->
+    <footer class="bottom-dock">
+      <div class="selection-badge">
+        <span id="badge-sub">Case cible</span>
+        <strong id="coord-label">Aucune</strong>
+      </div>
+
+      <button id="action-btn" type="button" aria-pressed="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+        </svg>
+        <span id="btn-text">SÉLECTIONNER</span>
+      </button>
+    </footer>
+  </div>
+
+  <script>
+    const CONFIG = {
+      cols: 12,
+      gap: 3
+    };
+
+    const state = {
+      rows: 0,
+      cellSize: 0,
+      selectedCell: null,
+      toolSelected: false,
+      multiSelection: new Set(),
+      savedCells: [],
+      isSwiping: false,
+      swipeMode: 'add',
+      lastSwipedKey: null
+    };
+
+    const viewportEl = document.getElementById('viewport');
+    const gridEl = document.getElementById('snap-grid');
+    const coordLabel = document.getElementById('coord-label');
+    const badgeSub = document.getElementById('badge-sub');
+    const actionBtn = document.getElementById('action-btn');
+    const btnText = document.getElementById('btn-text');
+    const toastEl = document.getElementById('toast');
+    let toastTimer = null;
+
+    function triggerFeedback(freq = 520) {
+      if (navigator.vibrate) navigator.vibrate(12);
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.045);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.045);
+      } catch (_) {}
+    }
+
+    function showToast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.add('visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toastEl.classList.remove('visible');
+      }, 2200);
+    }
+
+    function getCellEl(row, col) {
+      if (row < 0 || row >= state.rows || col < 0 || col >= CONFIG.cols) return null;
+      return gridEl.children[row * CONFIG.cols + col] || null;
+    }
+
+    function refreshCellVisuals() {
+      const savedSet = new Set(state.savedCells.map(c => `${c.row}:${c.col}`));
+
+      for (const cell of gridEl.children) {
+        const row = Number(cell.dataset.row);
+        const col = Number(cell.dataset.col);
+        const key = `${row}:${col}`;
+
+        cell.classList.remove('selected', 'block-member');
+
+        if (state.toolSelected) {
+          if (state.multiSelection.has(key)) {
+            cell.classList.add('selected');
+          }
+        } else {
+          if (savedSet.has(key)) {
+            cell.classList.add('block-member');
+          }
+          if (state.selectedCell && state.selectedCell.row === row && state.selectedCell.col === col) {
+            cell.classList.add('selected');
+          }
+        }
+      }
+    }
+
+    function buildPerfectSquareGrid() {
+      const rect = viewportEl.getBoundingClientRect();
+      const pad = 12;
+      const availW = rect.width - pad;
+      const availH = rect.height - pad;
+
+      const totalGapW = CONFIG.gap * (CONFIG.cols - 1);
+      const cellSize = Math.floor((availW - totalGapW) / CONFIG.cols);
+      const rows = Math.max(1, Math.floor((availH + CONFIG.gap) / (cellSize + CONFIG.gap)));
+
+      state.cellSize = cellSize;
+      state.rows = rows;
+
+      gridEl.style.gridTemplateColumns = `repeat(${CONFIG.cols}, ${cellSize}px)`;
+      gridEl.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+      gridEl.innerHTML = '';
+
+      const totalCells = CONFIG.cols * rows;
+      const fragment = document.createDocumentFragment();
+
+      for (let i = 0; i < totalCells; i++) {
+        const row = Math.floor(i / CONFIG.cols);
+        const col = i % CONFIG.cols;
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.dataset.index = i;
+        cell.dataset.row = row;
+        cell.dataset.col = col;
+        cell.textContent = `${col + 1}:${row + 1}`;
+        fragment.appendChild(cell);
+      }
+
+      gridEl.appendChild(fragment);
+
+      if (state.selectedCell) {
+        state.selectedCell.el = getCellEl(state.selectedCell.row, state.selectedCell.col);
+      }
+
+      refreshCellVisuals();
+    }
+
+    function snapToNearestCell(clientX, clientY) {
+      const rect = gridEl.getBoundingClientRect();
+      const step = state.cellSize + CONFIG.gap;
+      const relX = Math.max(0, Math.min(rect.width - 1, clientX - rect.left));
+      const relY = Math.max(0, Math.min(rect.height - 1, clientY - rect.top));
+
+      const col = Math.min(CONFIG.cols - 1, Math.floor(relX / step));
+      const row = Math.min(state.rows - 1, Math.floor(relY / step));
+
+      return getCellEl(row, col);
+    }
+
+// Rapport bref : liste des carreaux (col:row) + forme exacte du bloc pour remplacement à l'identique
+function buildBriefReport(keysSet) {
+  const items = Array.from(keysSet)
+    .map(key => {
+      const [r, c] = key.split(':').map(Number);
+      return { row: r, col: c, label: `${c + 1}:${r + 1}` };
+    })
+    .sort((a, b) => (a.row - b.row) || (a.col - b.col));
+
+  if (items.length === 0) return null;
+
+  const minRow = Math.min(...items.map(x => x.row));
+  const maxRow = Math.max(...items.map(x => x.row));
+  const minCol = Math.min(...items.map(x => x.col));
+  const maxCol = Math.max(...items.map(x => x.col));
+
+  const width = maxCol - minCol + 1;
+  const height = maxRow - minRow + 1;
+  const activeSet = new Set(items.map(x => `${x.row}:${x.col}`));
+
+  const shape = [];
+  for (let r = minRow; r <= maxRow; r++) {
+    let line = '';
+    for (let c = minCol; c <= maxCol; c++) {
+      line += activeSet.has(`${r}:${c}`) ? '#' : '.';
+    }
+    shape.push(line);
+  }
+
+  const cellsList = items.map(x => x.label).join(', ');
+  const text = `BLOC ${minCol + 1}:${minRow + 1} (${width}x${height}) | ${cellsList}\n${shape.join('\n')}`;
+
+  return {
+    items,
+    minRow,
+    maxRow,
+    minCol,
+    maxCol,
+    width,
+    height,
+    shape,
+    cellsList,
+    text
+  };
+}
+
+    async function copyTextToClipboard(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (_) {}
+
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function updateMultiSelectionBadge() {
+      const count = state.multiSelection.size;
+      badgeSub.textContent = 'Sélection multiple';
+      coordLabel.textContent = count > 0 ? `${count} carreau${count > 1 ? 'x' : ''}` : 'Aucun';
+    }
+
+    function applyMultiCellAction(cellEl, forceMode = null) {
+      if (!cellEl) return;
+      const row = Number(cellEl.dataset.row);
+      const col = Number(cellEl.dataset.col);
+      const key = `${row}:${col}`;
+
+      const mode = forceMode || (state.multiSelection.has(key) ? 'remove' : 'add');
+
+      if (mode === 'add') {
+        state.multiSelection.add(key);
+        cellEl.classList.add('selected');
+        triggerFeedback(680);
+      } else {
+        state.multiSelection.delete(key);
+        cellEl.classList.remove('selected');
+        triggerFeedback(440);
+      }
+
+      updateMultiSelectionBadge();
+      onCellClick({ row, col, key, selected: state.multiSelection.has(key), total: state.multiSelection.size });
+    }
+
+    function selectSingleCell(cellEl) {
+      if (!cellEl) return;
+
+      if (state.selectedCell && state.selectedCell.el) {
+        state.selectedCell.el.classList.remove('selected');
+      }
+
+      cellEl.classList.add('selected');
+      const row = Number(cellEl.dataset.row);
+      const col = Number(cellEl.dataset.col);
+      const index = Number(cellEl.dataset.index);
+
+      state.selectedCell = { row, col, index, el: cellEl };
+      badgeSub.textContent = 'Case cible';
+      coordLabel.textContent = `${col + 1}:${row + 1}`;
+      triggerFeedback(620);
+
+      onCellClick(state.selectedCell);
+    }
+
+    gridEl.addEventListener('pointerdown', (e) => {
+      const targetCell = e.target.closest('.grid-cell') || snapToNearestCell(e.clientX, e.clientY);
+      if (!targetCell) return;
+
+      if (state.toolSelected) {
+        state.isSwiping = true;
+        const row = Number(targetCell.dataset.row);
+        const col = Number(targetCell.dataset.col);
+        const key = `${row}:${col}`;
+        state.swipeMode = state.multiSelection.has(key) ? 'remove' : 'add';
+        state.lastSwipedKey = key;
+        gridEl.setPointerCapture(e.pointerId);
+        applyMultiCellAction(targetCell, state.swipeMode);
+      } else {
+        selectSingleCell(targetCell);
+      }
+    });
+
+    gridEl.addEventListener('pointermove', (e) => {
+      if (!state.toolSelected || !state.isSwiping) return;
+      const cell = snapToNearestCell(e.clientX, e.clientY);
+      if (!cell) return;
+      const key = `${cell.dataset.row}:${cell.dataset.col}`;
+      if (key !== state.lastSwipedKey) {
+        state.lastSwipedKey = key;
+        applyMultiCellAction(cell, state.swipeMode);
+      }
+    });
+
+    function endSwipe(e) {
+      if (!state.isSwiping) return;
+      state.isSwiping = false;
+      state.lastSwipedKey = null;
+      if (e && e.pointerId && gridEl.hasPointerCapture(e.pointerId)) {
+        try { gridEl.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+    }
+
+    gridEl.addEventListener('pointerup', endSwipe);
+    gridEl.addEventListener('pointercancel', endSwipe);
+
+    actionBtn.addEventListener('click', async () => {
+      if (!state.toolSelected) {
+        state.toolSelected = true;
+        state.multiSelection.clear();
+
+        if (state.selectedCell) {
+          state.multiSelection.add(`${state.selectedCell.row}:${state.selectedCell.col}`);
+        }
+
+        actionBtn.classList.add('is-active');
+        actionBtn.setAttribute('aria-pressed', 'true');
+        btnText.textContent = 'VALIDER BLOC';
+        refreshCellVisuals();
+        updateMultiSelectionBadge();
+        triggerFeedback(780);
+        showToast('Sélectionnez vos carreaux');
+      } else {
+        const report = buildBriefReport(state.multiSelection);
+
+        state.toolSelected = false;
+        actionBtn.classList.remove('is-active');
+        actionBtn.setAttribute('aria-pressed', 'false');
+        btnText.textContent = 'SÉLECTIONNER';
+
+        if (report) {
+          state.savedCells = report.items;
+          const copied = await copyTextToClipboard(report.text);
+          refreshCellVisuals();
+          badgeSub.textContent = `Bloc (${report.items.length})`;
+          coordLabel.textContent = report.text;
+          triggerFeedback(920);
+          showToast(copied ? `Copié : ${report.text}` : report.text);
+          onBlockSaved(report, copied);
+        } else {
+          state.savedCells = [];
+          refreshCellVisuals();
+          badgeSub.textContent = 'Case cible';
+          coordLabel.textContent = 'Aucune';
+          triggerFeedback(420);
+          showToast('Aucun carreau');
+        }
+
+        state.multiSelection.clear();
+      }
+
+      onBottomButtonToggle(state.toolSelected, state.savedCells);
+    });
+
+    // --- HOOKS POUR LA SUITE ---
+    function onCellClick(cellData) {
+      console.log('Carreau :', cellData);
+    }
+
+    function onBlockSaved(report, copied) {
+      console.log('Rapport bref :', report.text, { copied });
+    }
+
+    function onBottomButtonToggle(isActive, savedCells) {
+      console.log('Bouton bas :', { isActive, savedCells });
+    }
+
+    window.addEventListener('resize', buildPerfectSquareGrid);
+    buildPerfectSquareGrid();
+  </script>
+<script>
+if ('serviceWorker' in navigator) {
+window.addEventListener('load',()=>{
+navigator.serviceWorker.register('./sw.js').catch(err=>console.error(err));
+});
+}
+</script>
+</body>
+</html>
